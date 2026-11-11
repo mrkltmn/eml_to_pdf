@@ -9,7 +9,13 @@ import pymupdf
 
 from .model import Attachment, Email, _decode_bytes, parse_eml_bytes, parse_msg_source
 from .office import OFFICE_EXT, OfficeConverter
-from .render import Renderer, build_email_html, slip_sheet_html, text_document_html
+from .render import (
+    Renderer,
+    build_email_html,
+    html_attachment,
+    slip_sheet_html,
+    text_document_html,
+)
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".jpe", ".gif", ".bmp", ".tif", ".tiff", ".jxr", ".webp"}
 TEXT_EXT = {".txt", ".log", ".text"}
@@ -46,11 +52,19 @@ class Assembler:
 
     # ----------------------------------------------------------------- helpers
 
-    def _html_doc(self, html: str, result: BuildResult, context: str) -> pymupdf.Document:
+    def _html_doc(
+        self, html: str, result: BuildResult, context: str, remote_urls: list[str] | None = None
+    ) -> pymupdf.Document:
         pdf, blocked = self.renderer.html_to_pdf(html)
-        if blocked:
+        if remote_urls:
+            listing = "".join(f"\n          {url}" for url in remote_urls)
             result.warnings.append(
-                f"{context}: {blocked} remote resource(s) (e.g. externally hosted images) "
+                f"{context}: {len(remote_urls)} externally hosted image(s) not downloaded "
+                f"(placeholder shown in PDF):{listing}"
+            )
+        if blocked:  # other remote content, e.g. CSS background images
+            result.warnings.append(
+                f"{context}: {blocked} other remote resource(s) (e.g. background images) "
                 "were not downloaded"
             )
         return pymupdf.open("pdf", pdf)
@@ -64,7 +78,9 @@ class Assembler:
     def build_email(
         self, em: Email, result: BuildResult, context: str = "E-mail", depth: int = 0
     ) -> pymupdf.Document:
-        doc = self._html_doc(build_email_html(em, self.printed_on), result, context)
+        urls: list[str] = []
+        html = build_email_html(em, self.printed_on, urls)
+        doc = self._html_doc(html, result, context, urls)
         attachments = [a for a in em.attachments if not em.is_inline(a)]
         total = len(attachments)
         for i, att in enumerate(attachments, start=1):
@@ -117,7 +133,9 @@ class Assembler:
         if ext in TEXT_EXT or (ctype == "text/plain" and not ext):
             return self._html_doc(text_document_html(_decode_bytes(att.data)), result, context)
         if ext in HTML_EXT or (ctype == "text/html" and not ext):
-            return self._html_doc(_decode_bytes(att.data), result, context)
+            urls: list[str] = []
+            html = html_attachment(_decode_bytes(att.data), urls)
+            return self._html_doc(html, result, context, urls)
         raise AttachmentError(f"file type '{ext or ctype}' cannot be rendered to PDF")
 
     @staticmethod

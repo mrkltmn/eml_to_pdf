@@ -52,8 +52,10 @@ unknown types) get a slip sheet stating the reason. The original file is saved i
 ## Notes
 
 - Remote content is never downloaded: JavaScript and network access are disabled during
-  rendering, so tracking pixels are not triggered. If an e-mail references real externally
-  hosted images, they appear as blanks and the report notes it.
+  rendering, so tracking pixels are not triggered and the PDF reflects only what was in the
+  e-mail file. Externally hosted images appear as a boxed placeholder,
+  `[External image not downloaded: <URL>]`, and the report lists each full URL. 1x1
+  tracking pixels are dropped silently.
 - macOS: the first run will ask permission for your terminal to control Microsoft Word,
   Excel, and PowerPoint. Files are staged inside Office's sandbox folders to avoid
   per-file access prompts.

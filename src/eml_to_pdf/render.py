@@ -56,6 +56,11 @@ img { max-width: 100%; height: auto; }
 /* Outlook wraps bodies in named pages (div.WordSection1 {page: WordSection1}), which
    makes Chromium force a page break between our header and the body. */
 * { page: auto !important; }
+.e2p-ext-img { display: inline-block !important; max-width: 100% !important;
+  border: 1px dashed #888 !important; background: #f3f3f3 !important; color: #444 !important;
+  font: 7.5pt Aptos, Calibri, 'Segoe UI', Helvetica, Arial, sans-serif !important;
+  padding: 3px 5px !important; margin: 2px 0 !important; overflow-wrap: anywhere !important;
+  text-align: left !important; text-decoration: none !important; }
 """
 
 # Remote 1x1 images are tracking pixels (e.g. Mimecast); drop them so they are never
@@ -75,6 +80,31 @@ def _strip_tracking_pixels(html: str) -> str:
         return tag
 
     return _IMG_TAG.sub(repl, html)
+
+
+_SRC = re.compile(r"""\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))""", re.IGNORECASE)
+_PLACEHOLDER_URL_MAX = 150
+
+
+def replace_remote_images(html: str, urls: list[str] | None = None) -> str:
+    """Replace externally hosted <img> tags with a visible placeholder (they are never
+    downloaded). Each replaced URL is appended to `urls` for the report."""
+
+    def repl(m: re.Match) -> str:
+        tag = m.group(0)
+        src = _SRC.search(tag)
+        url = htmlmod.unescape(next((g for g in src.groups() if g is not None), "")).strip() if src else ""
+        if not re.match(r"(?i)(https?|ftp)://", url):
+            return tag
+        if urls is not None:
+            urls.append(url)
+        shown = url if len(url) <= _PLACEHOLDER_URL_MAX else url[:_PLACEHOLDER_URL_MAX] + "…"
+        return (
+            '<span class="e2p-ext-img">[External image not downloaded: '
+            f"{htmlmod.escape(shown)}]</span>"
+        )
+
+    return _IMG_TAG.sub(repl, _strip_tracking_pixels(html))
 
 _SLIP_CSS = """
 body { font-family: Aptos, Calibri, 'Segoe UI', Helvetica, Arial, sans-serif; margin: 0; }
@@ -118,14 +148,14 @@ def _inline_cid_map(em: Email) -> dict[str, str]:
     return cids
 
 
-def build_email_html(em: Email, printed_on: str) -> str:
+def build_email_html(em: Email, printed_on: str, remote_urls: list[str] | None = None) -> str:
     header = _header_html(em, printed_on)
     style = f"<style>{_CSS}</style>"
     if em.html:
         cids = _inline_cid_map(em)
         body = _CID_RE.sub(
             lambda m: cids.get(_norm_cid(unquote(m.group(1))), m.group(0)),
-            _strip_tracking_pixels(em.html),
+            replace_remote_images(em.html, remote_urls),
         )
         head_close = re.search(r"</head\s*>", body, re.IGNORECASE)
         if head_close:
@@ -141,6 +171,16 @@ def build_email_html(em: Email, printed_on: str) -> str:
         f'<!doctype html><html><head><meta charset="utf-8">{style}</head>'
         f'<body>{header}<div class="e2p-plain">{text}</div></body></html>'
     )
+
+
+def html_attachment(html: str, remote_urls: list[str] | None = None) -> str:
+    """An .htm/.html attachment, with remote images replaced by placeholders."""
+    html = replace_remote_images(html, remote_urls)
+    style = f"<style>{_CSS}</style>"
+    head_close = re.search(r"</head\s*>", html, re.IGNORECASE)
+    if head_close:
+        return html[: head_close.start()] + style + html[head_close.start():]
+    return style + html
 
 
 def text_document_html(text: str) -> str:
