@@ -9,6 +9,33 @@ wheels/
 # Virtual environments
 .venv
 
-#Sample Documents
-sample_files/
+# macOS / Windows metadata
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+
+# Local project notes
 claude.md
+CLAUDE.md
+.claude/
+
+# Confidential materials -- never commit e-mails, documents, or output
+sample_files/
+converted_pdf/
+conversion_report_*.txt
+*_natives/
+*.eml
+*.emlx
+*.msg
+*.mbox
+*.pst
+*.ost
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+*.zip

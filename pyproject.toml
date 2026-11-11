@@ -1,13 +1,18 @@
 [project]
 name = "eml-to-pdf"
 version = "0.1.0"
-description = "Add your description here"
+description = "Batch-convert .eml and .msg e-mails (with attachments) into PDFs for litigation."
 readme = "README.md"
 authors = [
     { name = "mrkltmn", email = "maltman@fastmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "extract-msg>=0.52",
+    "playwright>=1.48",
+    "pymupdf>=1.24",
+    "pywin32>=306; sys_platform == 'win32'",
+]
 
 [project.scripts]
 eml-to-pdf = "eml_to_pdf:main"
