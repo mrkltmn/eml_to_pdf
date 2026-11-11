@@ -8,3 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+#Sample Documents
+sample_files/
+claude.md
